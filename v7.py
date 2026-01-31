@@ -63,20 +63,20 @@ state_text = ["常规", "初始0", "预热1", "低速2", "高速3", "降温4"]
 state = 0
 add_flag_1 = False
 add_flag_2 = True
-
+down_flag_1 =True
 
 # # ===== HEX / ASCII 打印 =====
 # def hexdump(data: bytes) -> str:
 #     return " ".join(f"{b:02X}" for b in data)
-
-
+#
+#
 # def ascii_dump(data: bytes) -> str:
 #     return "".join(chr(b) if 0x20 <= b <= 0x7E else "." for b in data)
 
 
 # ===== 数据转发 =====
 def forward(src, dst, direction):
-    global real_dat, out_dat, set_values, set_mult, add_flag_1, add_flag_2
+    global real_dat, out_dat, set_values, set_mult, add_flag_1, add_flag_2,down_flag_1
     try:
         while True:
             data = src.recv(BUFFER_SIZE)
@@ -102,52 +102,62 @@ def forward(src, dst, direction):
                     set_values[0] = 25
                     set_random[0] = 1
                     # 设置压力
-                    set_values[1] = 100
+                    set_values[1] = 300
                     set_random[1] = 8
 
                 # 预热阶段
                 elif state == 2:
                     # 设置温度
                     if out_dat[0] < 550:
-                        set_add[0] = random.uniform(0, out_dat[0] * 786)
+                        set_add[0] = random.uniform(0, (1000-out_dat[0]) / 4500)
                     else:
                         set_add[0] = random.uniform(-2, 1)
                     # 设置压力
                     set_random[1] = 6
-                    if add_flag_1:
-                        set_add[1] = random.uniform(46, 60)
-                        if out_dat[1] > 3200:
-                            add_flag_1 = False
+                    set_add[1] = random.uniform(0,0.1)
+                    if down_flag_1:
+                        set_add[1] = random.uniform(-1,0)
+                        if out_dat[1]<100:
+                            down_flag_1=False
                     else:
-                        set_add[1] = random.uniform(-8, 4)
-                        if out_dat[1] < 2700:
-                            add_flag_1 = True
-                        elif out_dat[1] > 3200:
-                            set_add[1] = random.uniform(-30, -10)
+                        set_add[1] = random.uniform(0,240)
+                        if out_dat[1]>300:
+                            down_flag_1=True
+
+                    # if add_flag_1:
+                    #     set_add[1] = random.uniform(46, 60)
+                    #     if out_dat[1] > 3200:
+                    #         add_flag_1 = False
+                    # else:
+                    #     set_add[1] = random.uniform(-8, 4)
+                    #     if out_dat[1] < 2700:
+                    #         add_flag_1 = True
+                    #     elif out_dat[1] > 3200:
+                    #         set_add[1] = random.uniform(-30, -10)
 
                 # 低速阶段
                 elif state == 3:
                     # 设置温度
                     if out_dat[0] < 550:
-                        set_add[0] = random.uniform(4, 8)
+                        set_add[0] = random.uniform(4, 8)/1.7
                         set_random[0] = 5
                     elif out_dat[0] < 650:
-                        set_add[0] = random.uniform(0, 1)
+                        set_add[0] = random.uniform(0, 1)/1.7
                     elif out_dat[0] < 750:
-                        set_add[0] = random.uniform(0, 1.6)
+                        set_add[0] = random.uniform(0, 1.6)/1.7
                         set_random[0] = 8
                     elif out_dat[0] < 850:
-                        set_add[0] = random.uniform(0, 2.4)
+                        set_add[0] = random.uniform(0, 2.4)/1.7
                     elif out_dat[0] < 950:
-                        set_add[0] = random.uniform(0, 3)
+                        set_add[0] = random.uniform(0, 3)/1.7
                     elif out_dat[0] < 1300:
-                        set_add[0] = random.uniform(0, 4)
+                        set_add[0] = random.uniform(0, 4)/1.7
                     else:
                         set_add[0] = random.uniform(-5, 1)
                     # 设置压力
                     set_random[1] = 6
                     if add_flag_1:
-                        set_add[1] = random.uniform(46, 60)
+                        set_add[1] = random.uniform(42, 55)
                         if out_dat[1] > 3200:
                             add_flag_1 = False
                     else:
@@ -174,12 +184,14 @@ def forward(src, dst, direction):
                     if add_flag_1:
                         set_add[1] = random.uniform(70, 90)
                         if out_dat[1] >= 3950:
+                            out_dat[1] = 4096
                             add_flag_1 = False
                     else:
-                        if out_dat[1] < 4000:
-                            set_add[1] = random.uniform(-12, 4)
-                        else:
-                            set_add[1] = -40
+                        set_add[1] = random.uniform(-12, 4)
+                        # if out_dat[1] < 4000:
+                        #     set_add[1] = random.uniform(-12, 4)
+                        # else:
+                        #     set_add[1] = -40
 
                 # 降温阶段
                 elif state == 5:
